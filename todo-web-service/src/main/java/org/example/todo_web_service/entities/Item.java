@@ -1,12 +1,14 @@
-package org.example.todo_web_service.entity;
+package org.example.todo_web_service.entities;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @Setter
 @Getter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Table(name = "items")
 public class Item {
     @Id
