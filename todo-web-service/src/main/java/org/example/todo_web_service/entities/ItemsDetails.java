@@ -1,15 +1,17 @@
-package org.example.todo_web_service.entity;
+package org.example.todo_web_service.entities;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import org.example.todo_web_service.util.Priority;
+import lombok.*;
+import org.example.todo_web_service.models.Priority;
 
 import java.time.LocalDate;
 
 @Entity
 @Setter
 @Getter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
 @Table(name = "items_details")
 public class ItemsDetails {
     @Id
