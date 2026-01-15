@@ -6,44 +6,54 @@ import org.example.todo_web_service.dto.response.ItemResponse;
 import org.example.todo_web_service.entities.Item;
 import org.example.todo_web_service.entities.ItemsDetails;
 
+import java.time.LocalDate;
+import java.util.Optional;
+
 public class ItemMapper {
 
-    public static Item createItem(CreateItemRequest createItemRequest) {
-        if(createItemRequest == null) {
+    public static Item createItem(CreateItemRequest request) {
+        if(request == null) {
             return null;
         }
 
-        ItemsDetails itemsDetails = ItemsDetails.builder()
-                .description(createItemRequest.getDescription())
-                .createdAt(createItemRequest.getCreatedAt())
-                .priority(createItemRequest.getPriority())
-                .status(createItemRequest.getStatus())
+        Item item = Item.builder()
+                .title(request.getTitle())
                 .build();
 
-        return Item.builder()
-                .title(createItemRequest.getTitle())
-                .itemsDetails(itemsDetails)
+        ItemsDetails itemsDetails = ItemsDetails.builder()
+                .description(request.getDescription())
+                .createdAt(LocalDate.now())
+                .priority(request.getPriority())
+                .status(request.getStatus())
                 .build();
+
+        itemsDetails.setItem(item);
+        item.setItemsDetails(itemsDetails);
+
+        return item;
     }
 
-    public static Item updateItem(UpdateItemRequest updateItemRequest) {
-        if(updateItemRequest == null) {
-            return null;
+    public static Item updateItem(Item item, UpdateItemRequest request) {
+        if(item == null || request == null) {
+            return item;
         }
 
-        ItemsDetails itemsDetails = ItemsDetails.builder()
-                .id(updateItemRequest.getId())
-                .description(updateItemRequest.getDescription())
-                .createdAt(updateItemRequest.getCreatedAt())
-                .priority(updateItemRequest.getPriority())
-                .status(updateItemRequest.getStatus())
-                .build();
+        Optional.ofNullable(request.getTitle()).ifPresent(item::setTitle);
 
-        return Item.builder()
-                .id(updateItemRequest.getId())
-                .title(updateItemRequest.getTitle())
-                .itemsDetails(itemsDetails)
-                .build();
+        ItemsDetails details = item.getItemsDetails();
+        if(details == null) {
+            return item;
+        }
+
+        Optional.ofNullable(request.getCreatedAt()).ifPresent(details::setCreatedAt);
+
+        Optional.ofNullable(request.getDescription()).ifPresent(details::setDescription);
+
+        Optional.ofNullable(request.getPriority()).ifPresent(details::setPriority);
+
+        Optional.ofNullable(request.getStatus()).ifPresent(details::setStatus);
+
+        return item;
     }
 
     public static ItemResponse toItemResponse(Item item) {
