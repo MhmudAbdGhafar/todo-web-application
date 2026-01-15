@@ -49,9 +49,11 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public ItemResponse update(UpdateItemRequest updateItemRequest) {
+    public ItemResponse update(UpdateItemRequest request) {
 
-        Item updatedItem = ItemMapper.updateItem(updateItemRequest);
+        Item existingItem = itemRepository.findById(request.getId()).orElseThrow();
+
+        Item updatedItem = ItemMapper.updateItem(existingItem, request);
 
         Item savedItem = itemRepository.save(updatedItem);
 
