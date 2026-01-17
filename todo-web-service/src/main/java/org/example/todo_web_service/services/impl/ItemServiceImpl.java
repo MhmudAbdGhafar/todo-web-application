@@ -4,14 +4,17 @@ import org.example.todo_web_service.dto.request.CreateItemRequest;
 import org.example.todo_web_service.dto.request.UpdateItemRequest;
 import org.example.todo_web_service.dto.response.ItemResponse;
 import org.example.todo_web_service.entities.Item;
+import org.example.todo_web_service.entities.ItemDetails;
+import org.example.todo_web_service.exception.NotFoundException;
 import org.example.todo_web_service.repositories.ItemRepository;
 import org.example.todo_web_service.services.ItemService;
 import org.example.todo_web_service.util.ItemMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 public class ItemServiceImpl implements ItemService {
@@ -24,50 +27,65 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public List<ItemResponse> findAll() {
-        return itemRepository.findAll()
-                .stream()
-                .map(ItemMapper::toItemResponse)
-                .collect(Collectors.toList());
+    public ItemResponse create(Long userId, CreateItemRequest req) {
+
+        ItemDetails details = ItemDetails.builder()
+                .description(req.description())
+                .createdAt(LocalDate.now())
+                .priority(req.priority())
+                .status(req.status())
+                .build();
+
+        Item item = Item.builder()
+                .title(req.title())
+                .userId(userId)
+                .build();
+
+        item.setDetails(details);
+
+        return ItemMapper.toResponse(itemRepository.save(item));
     }
 
     @Override
-    public ItemResponse findById(long id) {
-        Item item = itemRepository.findById(id).orElseThrow();
+    public ItemResponse update(Long userId, Long id, UpdateItemRequest req) {
 
-        return ItemMapper.toItemResponse(item);
+        Item item = itemRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Item not found"));
+
+        ItemDetails details = item.getDetails();
+        if(details == null) {
+            details = new ItemDetails();
+        }
+
+        Optional.ofNullable(req.title()).ifPresent(item::setTitle);
+        Optional.ofNullable(req.description()).ifPresent(details::setDescription);
+        Optional.ofNullable(req.priority()).ifPresent(details::setPriority);
+        Optional.ofNullable(req.status()).ifPresent(details::setStatus);
+
+        return ItemMapper.toResponse(itemRepository.save(item));
     }
 
     @Override
-    public ItemResponse save(CreateItemRequest createItemRequest) {
+    public void delete(Long userId, Long id) {
 
-        Item createdItem = ItemMapper.createItem(createItemRequest);
+        Item item = itemRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Item not found"));
 
-        Item savedItem = itemRepository.save(createdItem);
-
-        return ItemMapper.toItemResponse(savedItem);
+        itemRepository.delete(item);
     }
 
     @Override
-    public ItemResponse update(UpdateItemRequest request) {
+    public ItemResponse getById(Long userId, Long id) {
+        Item item = itemRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Item not found"));
 
-        Item existingItem = itemRepository.findById(request.getId()).orElseThrow();
-
-        Item updatedItem = ItemMapper.updateItem(existingItem, request);
-
-        Item savedItem = itemRepository.save(updatedItem);
-
-        return ItemMapper.toItemResponse(savedItem);
+        return ItemMapper.toResponse(item);
     }
 
     @Override
-    public ItemResponse delete(long id) {
+    public List<ItemResponse> searchByTitle(Long userId, String title){
 
-        Item deletedItem = itemRepository.findById(id).orElseThrow();
-
-        itemRepository.delete(deletedItem);
-
-        return ItemMapper.toItemResponse(deletedItem);
+        return itemRepository.findByUserIdAndTitleContainingIgnoreCase(userId, title == null ? "" : title)
+                .stream().map(ItemMapper::toResponse).toList();
     }
-
 }

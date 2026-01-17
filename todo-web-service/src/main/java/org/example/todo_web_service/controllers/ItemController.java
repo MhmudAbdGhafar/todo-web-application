@@ -1,18 +1,18 @@
 package org.example.todo_web_service.controllers;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.example.todo_web_service.dto.request.CreateItemRequest;
 import org.example.todo_web_service.dto.request.UpdateItemRequest;
 import org.example.todo_web_service.dto.response.ItemResponse;
 import org.example.todo_web_service.services.ItemService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping(value = "/api/v1")
+@RequestMapping(value = "/api/items")
 public class ItemController {
 
     private final ItemService itemService;
@@ -22,45 +22,51 @@ public class ItemController {
         this.itemService = itemService;
     }
 
-    @GetMapping(value = "/items")
-    public ResponseEntity<List<ItemResponse>> getAllItems() {
+    private Long userId(HttpServletRequest request) {
 
-        List<ItemResponse> responses = itemService.findAll();
+        Object val = request.getAttribute("userId");
 
-        return ResponseEntity.ok().body(responses);
+        return (val instanceof Long l) ? l : Long.valueOf(val.toString());
     }
 
-    @GetMapping(value = "/item")
-    public ResponseEntity<ItemResponse> getItemById(@RequestParam("id") Long id) {
+    @PostMapping
+    public ItemResponse createNewItem(
+            HttpServletRequest request,
+            @RequestBody @Valid CreateItemRequest req) {
 
-        ItemResponse response = itemService.findById(id);
-
-        return ResponseEntity.ok().body(response);
+        return itemService.create(userId(request), req);
     }
 
-    @PostMapping(value = "/item")
-    public ResponseEntity<ItemResponse> createNewItem(
-            @RequestBody CreateItemRequest request) {
+    @PutMapping("/{id}")
+    public ItemResponse updateItem(
+            HttpServletRequest request,
+            @PathVariable Long id,
+            @RequestBody @Valid UpdateItemRequest req) {
 
-        ItemResponse response = itemService.save(request);
-
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        return itemService.update(userId(request), id, req);
     }
 
-    @PutMapping(value = "/item")
-    public ResponseEntity<ItemResponse> updateItem(
-            @RequestBody UpdateItemRequest request) {
+    @DeleteMapping("/{id}")
+    public void deleteItemById(
+            HttpServletRequest request,
+            @PathVariable Long id) {
 
-        ItemResponse response = itemService.update(request);
-
-        return ResponseEntity.ok().body(response);
+        itemService.delete(userId(request), id);
     }
 
-    @DeleteMapping(value = "/item")
-    public ResponseEntity<ItemResponse> deleteItemById(@RequestParam("id") Long id) {
+    @GetMapping("/{id}")
+    public ItemResponse getItemById(
+            HttpServletRequest request,
+            @PathVariable Long id) {
 
-        ItemResponse response = itemService.delete(id);
+        return itemService.getById(userId(request), id);
+    }
 
-        return ResponseEntity.ok().body(response);
+    @GetMapping
+    public List<ItemResponse> searchItems(
+            HttpServletRequest request,
+            @RequestParam String title){
+
+        return itemService.searchByTitle(userId(request), title);
     }
 }

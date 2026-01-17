@@ -1,17 +1,15 @@
 package org.example.todo_web_service.dto.request;
 
-import lombok.*;
-import org.example.todo_web_service.models.Priority;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
-@Getter
-@Setter
-public class CreateItemRequest {
+import org.example.todo_web_service.entities.Priority;
+import org.example.todo_web_service.entities.TodoStatus;
 
-    private String title;
-
-    private String description;
-
-    private Priority priority;
-
-    private Boolean status;
-}
+public record CreateItemRequest(
+        @NotBlank @Size(max=200) String title,
+        @Size(max=500) String description,
+        @NotNull Priority priority,
+        @NotNull TodoStatus status
+) {}

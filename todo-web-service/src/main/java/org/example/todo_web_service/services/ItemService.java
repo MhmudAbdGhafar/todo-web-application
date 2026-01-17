@@ -7,15 +7,9 @@ import org.example.todo_web_service.dto.response.ItemResponse;
 import java.util.List;
 
 public interface ItemService {
-
-    List<ItemResponse> findAll();
-
-    ItemResponse findById(long id);
-
-    ItemResponse save(CreateItemRequest createItemRequest);
-
-    ItemResponse update(UpdateItemRequest updateItemRequest);
-
-    ItemResponse delete(long id);
-
+    ItemResponse create(Long userId, CreateItemRequest req);
+    ItemResponse update(Long userId, Long id, UpdateItemRequest req);
+    void delete(Long userId, Long id);
+    ItemResponse getById(Long userId, Long id);
+    List<ItemResponse> searchByTitle(Long userId, String title);
 }
