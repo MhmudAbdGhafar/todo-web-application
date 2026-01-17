@@ -17,10 +17,20 @@ public class Item {
 
     private String title;
 
+    @Column(name="user_id", nullable=false)
+    private Long userId;
+
     @OneToOne(
             mappedBy = "item",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
-    private ItemsDetails itemsDetails;
+    private ItemDetails details;
+
+    public void setDetails(ItemDetails details) {
+        this.details = details;
+        if (details != null) {
+            details.setItem(this);
+        }
+    }
 }

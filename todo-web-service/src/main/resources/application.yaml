@@ -1,8 +1,10 @@
+server:
+  port: 8082
+
 spring:
   application:
     name: todo-web-service
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: root
     url: jdbc:mysql://localhost:3307/mytodo_service_dev
@@ -20,3 +22,10 @@ management:
     web:
       exposure:
         include: "*"
+
+app:
+  userServiceBaseUrl: http://localhost:8081
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

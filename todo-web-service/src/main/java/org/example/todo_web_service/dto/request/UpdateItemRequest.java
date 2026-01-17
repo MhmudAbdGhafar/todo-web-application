@@ -1,26 +1,13 @@
 package org.example.todo_web_service.dto.request;
 
-import lombok.*;
-import org.example.todo_web_service.models.Priority;
+import jakarta.validation.constraints.Size;
 
-import java.time.LocalDate;
+import org.example.todo_web_service.entities.Priority;
+import org.example.todo_web_service.entities.TodoStatus;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class UpdateItemRequest {
-
-    private Long id;
-
-    private String title;
-
-    private String description;
-
-    private LocalDate createdAt;
-
-    private Priority priority;
-
-    private Boolean status;
-}
+public record UpdateItemRequest(
+        @Size(max=200) String title,
+        @Size(max=500) String description,
+        Priority priority,
+        TodoStatus status
+) {}

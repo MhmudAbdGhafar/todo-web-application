@@ -2,7 +2,6 @@ package org.example.todo_web_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.example.todo_web_service.models.Priority;
 
 import java.time.LocalDate;
 
@@ -13,7 +12,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Builder
 @Table(name = "items_details")
-public class ItemsDetails {
+public class ItemDetails {
     @Id
     private Long id; // same as item id
 
@@ -26,7 +25,9 @@ public class ItemsDetails {
     @Enumerated(EnumType.STRING)
     private Priority  priority;
 
-    private Boolean status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TodoStatus status;
 
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId  // This makes ItemsDetails use Items' ID
