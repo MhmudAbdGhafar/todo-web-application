@@ -1,0 +1,34 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-web-service
+  datasource:
+    url: jdbc:mysql://localhost:3307/myuser_service_sev
+    username: root
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: mhmudabdghafar@gmail.com
+    password: qvkliwdqmfraxlpf
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+app:
+  jwt:
+    secret: cb302fe592e4b627c93a82a073a27ad0ed778f74a03ce2cfbdb060335ef993fa
+    expirationMinutes: 60
+  otp:
+    expirationMinutes: 10
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
