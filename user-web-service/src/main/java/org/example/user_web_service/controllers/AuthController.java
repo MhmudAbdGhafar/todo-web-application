@@ -21,17 +21,20 @@ public class AuthController {
 
     @PostMapping("/register")
     public void register(@RequestBody @Valid RegisterRequest req) {
+
         authService.register(req);
     }
 
     @PostMapping("/activate")
     public void activate(@RequestParam("username") String username,
                          @RequestBody @Valid ActivateRequest req) {
+
         authService.activate(username, req);
     }
 
     @PostMapping("/login")
     public LoginResponse login(@RequestBody @Valid LoginRequest req) {
+
         return authService.login(req);
     }
 
@@ -45,19 +48,16 @@ public class AuthController {
         return authService.checkToken(token);
     }
 
-    @PostMapping("/regenrateOtp")
-    public void regenerateOtp(@RequestParam("email") String email) {
-        authService.regenerateOtp(email);
+    @PostMapping("/regenerateOtp")
+    public void regenerateOtp(@RequestParam("username") String username) {
+
+        authService.regenerateOtp(username);
     }
 
     @PostMapping("/forgetPassword")
-    public void forgetPassword(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+    public void forgetPassword(@RequestParam("username") String username) {
 
-        String token = authorization.startsWith("Bearer ")
-                ? authorization.substring(7)
-                : authorization;
-
-        authService.forgetPassword(token);
+        authService.forgetPassword(username);
     }
 
     @PostMapping("/changePassword")

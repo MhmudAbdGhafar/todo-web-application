@@ -9,11 +9,16 @@ import org.example.user_web_service.dto.request.RegisterRequest;
 import org.example.user_web_service.dto.response.CheckTokenResponse;
 import org.example.user_web_service.dto.response.LoginResponse;
 import org.example.user_web_service.entities.Jwt;
+import org.example.user_web_service.entities.Role;
+import org.example.user_web_service.entities.TokenType;
 import org.example.user_web_service.entities.User;
 import org.example.user_web_service.repositories.JwtRepository;
 import org.example.user_web_service.repositories.OtpRepository;
 import org.example.user_web_service.repositories.UserRepository;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -23,25 +28,27 @@ import java.time.Instant;
 @Slf4j
 public class AuthService {
 
-    private final UserRepository userRepository;
+    private final UserRepository userRepo;
     private final JwtRepository jwtRepo;
-    private final OtpRepository otpRepository;
+    private final OtpRepository otpRepo;
     private final OtpService otpService;
     private final MailService mailService;
     private final JwtService jwtService;
-
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final UserService userService;
+    private final PasswordEncoder encoder;
+    private final AuthenticationManager authManager;
 
     public void register(RegisterRequest req) {
 
-        if (userRepository.existsByEmail(req.email())) {
+        if (userRepo.existsByEmail(req.email())) {
             throw new RuntimeException("Email already exists");
         }
 
-        User user = userRepository.save(
+        User user = userRepo.save(
                 User.builder()
                         .email(req.email())
                         .password(encoder.encode(req.password()))
+                        .role(Role.ROLE_USER)
                         .enabled(false)
                         .build()
         );
@@ -52,13 +59,12 @@ public class AuthService {
             mailService.sendOtp(user.getEmail(), otp.getOtp());
         }catch (Exception ex) {
             log.error("Failed to send OTP email", ex);
-            // DO NOT throw — user is already saved
         }
     }
 
     public void activate(String usernameEmail, ActivateRequest req) {
 
-        User user = userRepository.findByEmail(usernameEmail)
+        User user = userRepo.findByEmail(usernameEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (!otpService.verify(user, req.otp())) {
@@ -66,29 +72,35 @@ public class AuthService {
         }
 
         user.setEnabled(true);
-        userRepository.save(user);
+
+        userRepo.save(user);
     }
 
     public LoginResponse login(LoginRequest req) {
 
-        User user = userRepository.findByEmail(req.email())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+        authManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        req.email(),
+                        req.password()
+                )
+        );
 
-        if (!user.isEnabled()) throw new RuntimeException("Account not activated");
+        var user = userRepo.findByEmail(req.email())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!encoder.matches(req.password(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+        if (!user.isEnabled()){
+            throw new RuntimeException("Account not activated");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
-        Instant exp = jwtService.getExpiration(token);
+        var token = jwtService.generateToken(user.getEmail());
+        var exp = jwtService.getExpiration(token);
 
         jwtRepo.save(Jwt.builder()
                 .token(token)
                 .user(user)
                 .createdAt(Instant.now())
                 .expirationDate(exp)
-                .tokenType("BEARER")
+                .tokenType(TokenType.BEARER)
                 .build());
 
         return new LoginResponse(token, exp.toString());
@@ -96,24 +108,32 @@ public class AuthService {
 
     public CheckTokenResponse checkToken(String rawToken) {
 
-        String email = jwtService.getEmail(rawToken); // validates signature too
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User does not exist"));
+        var email = jwtService.getEmail(rawToken);
 
-        // optional but good: ensure token exists in DB
-        jwtRepo.findByToken(rawToken).orElseThrow(() -> new RuntimeException("Token not recognized"));
+        var user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        jwtRepo.findByToken(rawToken)
+                .orElseThrow(() -> new RuntimeException("Token not recognized"));
+
+        var userDetails = userService.loadUserByUsername(email);
+        if(!jwtService.isTokenValid(rawToken, userDetails)){
+
+            throw new RuntimeException("Token is invalid, or  expired");
+        }
 
         return new CheckTokenResponse(
                 true,
                 user.getId(),
                 user.getEmail(),
                 jwtService.getExpiration(rawToken).toString(),
-                null);
+                "Token is valid and ready to use"
+        );
     }
 
-    public void regenerateOtp(String email) {
+    public void regenerateOtp(String usernameEmail) {
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepo.findByEmail(usernameEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         var otp = otpService.generateAndStore(user);
@@ -121,15 +141,13 @@ public class AuthService {
         try {
             mailService.sendOtp(user.getEmail(), otp.getOtp());
         } catch (Exception ex) {
-            throw new RuntimeException("Failed to send OTP email");
+            log.error("Failed to send OTP email", ex);
         }
     }
 
-    public void forgetPassword(String rawToken) {
+    public void forgetPassword(String usernameEmail) {
 
-        String email = jwtService.getEmail(rawToken);
-
-        User user = userRepository.findByEmail(email)
+        User user = userRepo.findByEmail(usernameEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         var otp = otpService.generateAndStore(user);
@@ -137,7 +155,7 @@ public class AuthService {
         try {
             mailService.sendOtp(user.getEmail(), otp.getOtp());
         } catch (Exception ex) {
-            throw new RuntimeException("Failed to send OTP email");
+            log.error("Failed to send OTP email", ex);
         }
     }
 
@@ -145,19 +163,19 @@ public class AuthService {
 
         String email = jwtService.getEmail(rawToken);
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         boolean ok = otpService.verify(user, req.otp());
-        if (!ok) throw new RuntimeException("Invalid or expired OTP");
+        if (!ok){
+            throw new RuntimeException("Invalid or expired OTP");
+        }
 
-        user.setPassword(encoder.encode(req.newPassword()));
-        userRepository.save(user);
+        user.setPassword(encoder.encode(req.password()));
+        userRepo.save(user);
 
-        // cleanup OTP after successful change
-        otpRepository.deleteByUser(user);
+        otpRepo.deleteByUser(user);
 
-        // optional but recommended: invalidate all existing tokens for the user
         jwtRepo.deleteByUser(user);
     }
 }
