@@ -24,6 +24,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (auth == null || !auth.startsWith("Bearer ")) {
+
             response.sendError(401, "Missing or invalid Authorization header");
 
             return false;
@@ -32,6 +33,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         CheckTokenResponse res = userServiceClient.checkToken(auth);
 
         if (res == null || !res.valid()) {
+
             response.sendError(401, res != null ? res.message() : "Invalid token");
 
             return false;

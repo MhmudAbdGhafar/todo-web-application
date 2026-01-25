@@ -19,13 +19,22 @@ public class UserServiceClient {
     public CheckTokenResponse checkToken(String bearerToken) {
 
         try {
+
             return restClient.post()
                     .uri("/api/auth/checkToken")
                     .header(HttpHeaders.AUTHORIZATION, bearerToken)
                     .retrieve()
                     .body(CheckTokenResponse.class);
+
         } catch (HttpClientErrorException.Unauthorized ex) {
-            return new CheckTokenResponse(false, null, null, null, "Invalid or expired token");
+
+            return new CheckTokenResponse(
+                    false,
+                    null,
+                    null,
+                    null,
+                    "Invalid or expired token"
+            );
         }
     }
 }

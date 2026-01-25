@@ -21,16 +21,14 @@ public class Jwt {
     @Column(nullable=false, length=1000)
     private String token;
 
+    private Instant createdAt;
+
+    private Instant expirationDate;
+
+    @Enumerated(EnumType.STRING)
+    private TokenType tokenType; // "BEARER"
+
     @ManyToOne(optional=false, fetch = FetchType.LAZY)
     @JoinColumn(name="user_id")
     private User user;
-
-    @Column(name="created_at", nullable=false)
-    private Instant createdAt;
-
-    @Column(name="expiration_date", nullable=false)
-    private Instant expirationDate;
-
-    @Column(name="token_type", nullable=false)
-    private String tokenType; // "BEARER"
 }
