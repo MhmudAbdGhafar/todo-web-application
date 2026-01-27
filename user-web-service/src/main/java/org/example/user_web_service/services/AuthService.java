@@ -2,12 +2,10 @@ package org.example.user_web_service.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.user_web_service.dto.request.ActivateRequest;
-import org.example.user_web_service.dto.request.ChangePasswordRequest;
-import org.example.user_web_service.dto.request.LoginRequest;
-import org.example.user_web_service.dto.request.RegisterRequest;
+import org.example.user_web_service.dto.request.*;
 import org.example.user_web_service.dto.response.CheckTokenResponse;
 import org.example.user_web_service.dto.response.LoginResponse;
+import org.example.user_web_service.dto.response.UserResponse;
 import org.example.user_web_service.entities.Jwt;
 import org.example.user_web_service.entities.Role;
 import org.example.user_web_service.entities.TokenType;
@@ -23,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +70,7 @@ public class AuthService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired OTP");
         }
 
-        user.setEnabled(true);
+        user.enable();
 
         userRepo.save(user);
     }
@@ -107,32 +106,45 @@ public class AuthService {
 
     public CheckTokenResponse checkToken(String rawToken) {
 
-        String email;
+        if (isBlank(rawToken)) {
+            return invalid("Missing token");
+        }
+
         try {
-            email = jwtService.getEmail(rawToken);
+            String email = jwtService.getEmail(rawToken);
+            Instant exp = jwtService.getExpiration(rawToken);
+
+            if (isBlank(email)) {
+                return invalid("Invalid token");
+            }
+
+            User user = findUserByEmail(email);
+            if (user == null) {
+                return invalid("User not found", null, email, exp);
+            }
+
+            if (jwtRepo.findByToken(rawToken).isEmpty()) {
+                return invalid("Token not recognized", user, exp);
+            }
+
+            if (exp.isBefore(Instant.now())) {
+                return invalid("Token is expired", user, exp);
+            }
+
+            return valid(user, exp);
+
+        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
+
+            return invalid("Token is expired");
         } catch (io.jsonwebtoken.JwtException ex) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
+
+            return invalid("Invalid token");
+        } catch (Exception ex) {
+
+            log.error("checkToken unexpected error", ex);
+
+            return invalid("Token validation failed");
         }
-
-        var user = findUserByEmail(email);
-
-        jwtRepo.findByToken(rawToken).orElseThrow(()
-                -> new ApiException(HttpStatus.UNAUTHORIZED, "Token not recognized"));
-
-        var userDetails = userService.loadUserByUsername(email);
-
-        if(!jwtService.isTokenValid(rawToken, userDetails)){
-
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
-        }
-
-        return new CheckTokenResponse(
-                true,
-                user.getId(),
-                user.getEmail(),
-                jwtService.getExpiration(rawToken).toString(),
-                "Token is valid and ready to use"
-        );
     }
 
     public void regenerateOtp(String email) {
@@ -161,18 +173,16 @@ public class AuthService {
         }
     }
 
-    public void changePassword(String rawToken, ChangePasswordRequest req) {
+    public void changePassword(ChangePasswordRequest req) {
 
-        String email = jwtService.getEmail(rawToken);
-
-        var user = findUserByEmail(email);
+        var user = findUserByEmail(req.email());
 
         boolean ok = otpService.verify(user, req.otp());
         if (!ok){
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired OTP");
         }
 
-        user.setPassword(encoder.encode(req.password()));
+        user.changePassword(encoder.encode(req.password()));
         userRepo.save(user);
 
         otpRepo.deleteByUser(user);
@@ -180,9 +190,84 @@ public class AuthService {
         jwtRepo.deleteByUser(user);
     }
 
+    public void deleteUser(DeleteRequest req) {
+
+        User user = findUserByEmail(req.email());
+
+        if (user.getRole() == Role.ROLE_ADMIN) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "Admin accounts cannot be deleted"
+            );
+        }
+
+        otpRepo.deleteByUser(user);
+        jwtRepo.deleteByUser(user);
+        userRepo.delete(user);
+    }
+
+    public void updateUser(String username, UpdateUserRequest req) {
+
+        var user = findUserByEmail(username);
+
+        if (req.role() != null) {
+            user.changeRole(req.role());
+        }
+
+        if (req.enabled() != null) {
+
+            if (req.enabled()) {
+                user.enable();
+            }
+            else {
+                user.disable();
+            }
+        }
+
+        userRepo.save(user);
+    }
+
     private User findUserByEmail(String email) {
 
         return userRepo.findByEmail(email).orElseThrow(()
                 -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private CheckTokenResponse valid(User user, Instant exp) {
+        return new CheckTokenResponse(
+                true,
+                user.getId(),
+                user.getEmail(),
+                exp.toString(),
+                "Token is valid and ready to use"
+        );
+    }
+
+    private CheckTokenResponse invalid(String message) {
+        return new CheckTokenResponse(false, null, null, null, message);
+    }
+
+    private CheckTokenResponse invalid(String message, User user, Instant exp) {
+        return new CheckTokenResponse(
+                false,
+                user.getId(),
+                user.getEmail(),
+                exp.toString(),
+                message
+        );
+    }
+
+    private CheckTokenResponse invalid(String message, Long userId, String email, Instant exp) {
+        return new CheckTokenResponse(
+                false,
+                userId,
+                email,
+                exp != null ? exp.toString() : null,
+                message
+        );
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

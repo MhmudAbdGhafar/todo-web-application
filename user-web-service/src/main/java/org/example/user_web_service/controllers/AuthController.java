@@ -2,14 +2,12 @@ package org.example.user_web_service.controllers;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.example.user_web_service.dto.request.ActivateRequest;
-import org.example.user_web_service.dto.request.ChangePasswordRequest;
-import org.example.user_web_service.dto.request.LoginRequest;
-import org.example.user_web_service.dto.request.RegisterRequest;
+import org.example.user_web_service.dto.request.*;
 import org.example.user_web_service.dto.response.CheckTokenResponse;
 import org.example.user_web_service.dto.response.LoginResponse;
 import org.example.user_web_service.services.AuthService;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -61,15 +59,24 @@ public class AuthController {
     }
 
     @PostMapping("/changePassword")
-    public void changePassword(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-            @RequestBody @Valid ChangePasswordRequest req
-    ) {
+    public void changePassword(@RequestBody @Valid ChangePasswordRequest req) {
 
-        String token = authorization.startsWith("Bearer ")
-                ? authorization.substring(7)
-                : authorization;
+        authService.changePassword(req);
+    }
 
-        authService.changePassword(token, req);
+    @DeleteMapping("/user")
+    @PreAuthorize("hasRole('ADMIN')")
+    public void delete(@RequestBody @Valid DeleteRequest req) {
+
+        authService.deleteUser(req);
+    }
+
+    @PutMapping("/user")
+    @PreAuthorize("hasRole('ADMIN')")
+    public void updateUser(
+            @RequestParam("username")  String username,
+            @RequestBody @Valid UpdateUserRequest req) {
+
+        authService.updateUser(username, req);
     }
 }

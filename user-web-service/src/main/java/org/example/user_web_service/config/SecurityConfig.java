@@ -54,8 +54,8 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(securityExceptionHandlers) // 401 JSON
-                        .accessDeniedHandler(securityExceptionHandlers)      // 403 JSON
+                        .authenticationEntryPoint(securityExceptionHandlers)
+                        .accessDeniedHandler(securityExceptionHandlers)
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(

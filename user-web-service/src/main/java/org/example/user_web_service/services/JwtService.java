@@ -56,15 +56,27 @@ public class JwtService {
         return parseClaims(token).getExpiration().toInstant();
     }
 
-    private boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return getExpiration(token).isBefore(Instant.now());
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
 
-        final String userName = getEmail(token);
+        try {
+            final String email = getEmail(token);
 
-        return (userName.equals(userDetails.getUsername())) && !isTokenExpired(token);
+            if (!email.equals(userDetails.getUsername())) {
+                return false;
+            }
+
+            return !isTokenExpired(token);
+
+        } catch (io.jsonwebtoken.JwtException ex) {
+
+            return false;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     @PostConstruct
