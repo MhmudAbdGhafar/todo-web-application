@@ -12,12 +12,13 @@ import org.example.user_web_service.entities.Jwt;
 import org.example.user_web_service.entities.Role;
 import org.example.user_web_service.entities.TokenType;
 import org.example.user_web_service.entities.User;
+import org.example.user_web_service.exception.ApiException;
 import org.example.user_web_service.repositories.JwtRepository;
 import org.example.user_web_service.repositories.OtpRepository;
 import org.example.user_web_service.repositories.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -41,7 +42,7 @@ public class AuthService {
     public void register(RegisterRequest req) {
 
         if (userRepo.existsByEmail(req.email())) {
-            throw new RuntimeException("Email already exists");
+            throw new ApiException(HttpStatus.CONFLICT, "Email already exists");
         }
 
         User user = userRepo.save(
@@ -62,13 +63,12 @@ public class AuthService {
         }
     }
 
-    public void activate(String usernameEmail, ActivateRequest req) {
+    public void activate(String email, ActivateRequest req) {
 
-        User user = userRepo.findByEmail(usernameEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        var user = findUserByEmail(email);
 
         if (!otpService.verify(user, req.otp())) {
-            throw new RuntimeException("Invalid or expired OTP");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired OTP");
         }
 
         user.setEnabled(true);
@@ -85,11 +85,10 @@ public class AuthService {
                 )
         );
 
-        var user = userRepo.findByEmail(req.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        var user = findUserByEmail(req.email());
 
         if (!user.isEnabled()){
-            throw new RuntimeException("Account not activated");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Account not activated");
         }
 
         var token = jwtService.generateToken(user.getEmail());
@@ -108,18 +107,23 @@ public class AuthService {
 
     public CheckTokenResponse checkToken(String rawToken) {
 
-        var email = jwtService.getEmail(rawToken);
+        String email;
+        try {
+            email = jwtService.getEmail(rawToken);
+        } catch (io.jsonwebtoken.JwtException ex) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
+        }
 
-        var user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        var user = findUserByEmail(email);
 
-        jwtRepo.findByToken(rawToken)
-                .orElseThrow(() -> new RuntimeException("Token not recognized"));
+        jwtRepo.findByToken(rawToken).orElseThrow(()
+                -> new ApiException(HttpStatus.UNAUTHORIZED, "Token not recognized"));
 
         var userDetails = userService.loadUserByUsername(email);
+
         if(!jwtService.isTokenValid(rawToken, userDetails)){
 
-            throw new RuntimeException("Token is invalid, or  expired");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
         }
 
         return new CheckTokenResponse(
@@ -131,10 +135,9 @@ public class AuthService {
         );
     }
 
-    public void regenerateOtp(String usernameEmail) {
+    public void regenerateOtp(String email) {
 
-        User user = userRepo.findByEmail(usernameEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        var user = findUserByEmail(email);
 
         var otp = otpService.generateAndStore(user);
 
@@ -145,10 +148,9 @@ public class AuthService {
         }
     }
 
-    public void forgetPassword(String usernameEmail) {
+    public void forgetPassword(String email) {
 
-        User user = userRepo.findByEmail(usernameEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        var user = findUserByEmail(email);
 
         var otp = otpService.generateAndStore(user);
 
@@ -163,12 +165,11 @@ public class AuthService {
 
         String email = jwtService.getEmail(rawToken);
 
-        User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        var user = findUserByEmail(email);
 
         boolean ok = otpService.verify(user, req.otp());
         if (!ok){
-            throw new RuntimeException("Invalid or expired OTP");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired OTP");
         }
 
         user.setPassword(encoder.encode(req.password()));
@@ -177,5 +178,11 @@ public class AuthService {
         otpRepo.deleteByUser(user);
 
         jwtRepo.deleteByUser(user);
+    }
+
+    private User findUserByEmail(String email) {
+
+        return userRepo.findByEmail(email).orElseThrow(()
+                -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
     }
 }

@@ -3,6 +3,7 @@ package org.example.user_web_service.services;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -64,5 +65,12 @@ public class JwtService {
         final String userName = getEmail(token);
 
         return (userName.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    }
+
+    @PostConstruct
+    void validateSecret() {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("app.jwt.secret must be at least 32 bytes for HS256");
+        }
     }
 }
