@@ -1,8 +1,8 @@
 package org.example.user_web_service.config;
 
 import lombok.RequiredArgsConstructor;
+import org.example.user_web_service.exception.handlers.SecurityExceptionHandlers;
 import org.example.user_web_service.filters.JwtAuthenticationFilter;
-import org.example.user_web_service.services.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,6 +27,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityExceptionHandlers securityExceptionHandlers;
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
@@ -51,6 +52,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(securityExceptionHandlers) // 401 JSON
+                        .accessDeniedHandler(securityExceptionHandlers)      // 403 JSON
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
