@@ -2,7 +2,7 @@ package org.example.user_web_service.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import org.example.user_web_service.validation.Otp6Digits;
 
 @Schema(
         name = "ActivateRequest",
@@ -17,6 +17,6 @@ public record ActivateRequest(
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
         @NotBlank
-        @Pattern(regexp = "\\d{6}")
+        @Otp6Digits
         String otp
 ) {}

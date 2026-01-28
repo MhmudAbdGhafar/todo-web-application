@@ -1,11 +1,11 @@
 package org.example.user_web_service.services;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.user_web_service.dto.request.*;
 import org.example.user_web_service.dto.response.CheckTokenResponse;
 import org.example.user_web_service.dto.response.LoginResponse;
-import org.example.user_web_service.dto.response.UserResponse;
 import org.example.user_web_service.entities.Jwt;
 import org.example.user_web_service.entities.Role;
 import org.example.user_web_service.entities.TokenType;
@@ -21,7 +21,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -34,37 +33,36 @@ public class AuthService {
     private final OtpService otpService;
     private final MailService mailService;
     private final JwtService jwtService;
-    private final UserService userService;
     private final PasswordEncoder encoder;
     private final AuthenticationManager authManager;
 
     public void register(RegisterRequest req) {
 
-        if (userRepo.existsByEmail(req.email())) {
+        String email = normalizeEmail(req.email());
+
+        if (userRepo.existsByEmail(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "Email already exists");
         }
 
         User user = userRepo.save(
                 User.builder()
-                        .email(req.email())
+                        .email(email)
                         .password(encoder.encode(req.password()))
                         .role(Role.ROLE_USER)
                         .enabled(false)
                         .build()
         );
 
-        var otp = otpService.generateAndStore(user);
-
-        try {
-            mailService.sendOtp(user.getEmail(), otp.getOtp());
-        }catch (Exception ex) {
-            log.error("Failed to send OTP email", ex);
-        }
+        sendOtpEmail(user);
     }
 
     public void activate(String email, ActivateRequest req) {
 
         var user = findUserByEmail(email);
+
+        if (user.isEnabled()) {
+            throw new ApiException(HttpStatus.CONFLICT, "Account is already activated");
+        }
 
         if (!otpService.verify(user, req.otp())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired OTP");
@@ -77,14 +75,13 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest req) {
 
+        String email = normalizeEmail(req.email());
+
         authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        req.email(),
-                        req.password()
-                )
+                new UsernamePasswordAuthenticationToken(email, req.password())
         );
 
-        var user = findUserByEmail(req.email());
+        var user = findUserByEmail(email);
 
         if (!user.isEnabled()){
             throw new ApiException(HttpStatus.FORBIDDEN, "Account not activated");
@@ -104,6 +101,11 @@ public class AuthService {
         return new LoginResponse(token, exp.toString());
     }
 
+    /**
+     * IMPORTANT:
+     * - This endpoint is for inter-service communication (todo-service -> user-service).
+     * - It should NEVER throw, only return (valid/invalid).
+     */
     public CheckTokenResponse checkToken(String rawToken) {
 
         if (isBlank(rawToken)) {
@@ -118,17 +120,18 @@ public class AuthService {
                 return invalid("Invalid token");
             }
 
-            User user = findUserByEmail(email);
-            if (user == null) {
-                return invalid("User not found", null, email, exp);
+            if (exp.isBefore(Instant.now())) {
+                return invalid("Token is expired");
             }
+
+            User user = findUserByEmail(email);
 
             if (jwtRepo.findByToken(rawToken).isEmpty()) {
                 return invalid("Token not recognized", user, exp);
             }
 
-            if (exp.isBefore(Instant.now())) {
-                return invalid("Token is expired", user, exp);
+            if (!jwtService.isTokenValid(rawToken, user)) {
+                return invalid("Token is invalid or expired", user, exp);
             }
 
             return valid(user, exp);
@@ -151,34 +154,22 @@ public class AuthService {
 
         var user = findUserByEmail(email);
 
-        var otp = otpService.generateAndStore(user);
-
-        try {
-            mailService.sendOtp(user.getEmail(), otp.getOtp());
-        } catch (Exception ex) {
-            log.error("Failed to send OTP email", ex);
-        }
+        sendOtpEmail(user);
     }
 
     public void forgetPassword(String email) {
 
         var user = findUserByEmail(email);
 
-        var otp = otpService.generateAndStore(user);
-
-        try {
-            mailService.sendOtp(user.getEmail(), otp.getOtp());
-        } catch (Exception ex) {
-            log.error("Failed to send OTP email", ex);
-        }
+        sendOtpEmail(user);
     }
 
+    @Transactional
     public void changePassword(ChangePasswordRequest req) {
 
         var user = findUserByEmail(req.email());
 
-        boolean ok = otpService.verify(user, req.otp());
-        if (!ok){
+        if (!otpService.verify(user, req.otp())){
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired OTP");
         }
 
@@ -190,25 +181,37 @@ public class AuthService {
         jwtRepo.deleteByUser(user);
     }
 
-    public void deleteUser(DeleteRequest req) {
+    @Transactional
+    public void deleteUser(String email, DeleteRequest req) {
 
-        User user = findUserByEmail(req.email());
+        User admin = findUserByEmail(req.email());
 
-        if (user.getRole() == Role.ROLE_ADMIN) {
+        if (!encoder.matches(req.password(), admin.getPassword())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid admin password");
+        }
+
+        User targetUser = findUserByEmail(email);
+
+        if (targetUser.getRole() == Role.ROLE_ADMIN) {
             throw new ApiException(
                     HttpStatus.FORBIDDEN,
                     "Admin accounts cannot be deleted"
             );
         }
 
-        otpRepo.deleteByUser(user);
-        jwtRepo.deleteByUser(user);
-        userRepo.delete(user);
+        otpRepo.deleteByUser(targetUser);
+        jwtRepo.deleteByUser(targetUser);
+        userRepo.delete(targetUser);
     }
 
+    @Transactional
     public void updateUser(String username, UpdateUserRequest req) {
 
         var user = findUserByEmail(username);
+
+        if (user.getRole() == Role.ROLE_ADMIN && Boolean.FALSE.equals(req.enabled())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Admin accounts cannot be disabled");
+        }
 
         if (req.role() != null) {
             user.changeRole(req.role());
@@ -227,10 +230,25 @@ public class AuthService {
         userRepo.save(user);
     }
 
+    private void sendOtpEmail(User user) {
+
+        var otp = otpService.generateAndStore(user);
+
+        try {
+            mailService.sendOtp(user.getEmail(), otp.getOtp());
+        } catch (Exception ex) {
+            log.error("Failed to send OTP email to {}", user.getEmail(), ex);
+        }
+    }
+
     private User findUserByEmail(String email) {
 
-        return userRepo.findByEmail(email).orElseThrow(()
+        return userRepo.findByEmail(normalizeEmail(email)).orElseThrow(()
                 -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     private CheckTokenResponse valid(User user, Instant exp) {
@@ -253,16 +271,6 @@ public class AuthService {
                 user.getId(),
                 user.getEmail(),
                 exp.toString(),
-                message
-        );
-    }
-
-    private CheckTokenResponse invalid(String message, Long userId, String email, Instant exp) {
-        return new CheckTokenResponse(
-                false,
-                userId,
-                email,
-                exp != null ? exp.toString() : null,
                 message
         );
     }

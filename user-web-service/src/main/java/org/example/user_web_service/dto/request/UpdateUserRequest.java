@@ -2,6 +2,7 @@ package org.example.user_web_service.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.example.user_web_service.entities.Role;
+import org.example.user_web_service.validation.AtLeastOneField;
 
 @Schema(
         name = "UpdateUserRequest",
@@ -13,6 +14,7 @@ import org.example.user_web_service.entities.Role;
                 - All fields are optional; only provided fields will be updated.
                 """
 )
+@AtLeastOneField(fields = {"role", "enabled"})
 public record UpdateUserRequest(
 
         @Schema(
