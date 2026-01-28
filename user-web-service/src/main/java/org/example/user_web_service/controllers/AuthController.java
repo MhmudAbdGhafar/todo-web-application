@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import lombok.RequiredArgsConstructor;
 import org.example.user_web_service.config.OpenApiConfig;
 import org.example.user_web_service.dto.request.*;
@@ -20,9 +21,11 @@ import org.example.user_web_service.exception.ApiErrorResponse;
 import org.example.user_web_service.services.AuthService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Validated
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Tag(
@@ -98,7 +101,7 @@ public class AuthController {
                     in = ParameterIn.QUERY,
                     example = "user@example.com"
             )
-            @RequestParam("username") String username,
+            @RequestParam("username") @Email String username,
 
 
             @RequestBody @Valid
@@ -217,7 +220,7 @@ public class AuthController {
                     in = ParameterIn.QUERY,
                     example = "user@example.com"
             )
-            @RequestParam("username") String username) {
+            @RequestParam("username") @Email String username) {
 
         authService.regenerateOtp(username);
     }
@@ -244,7 +247,7 @@ public class AuthController {
                     in = ParameterIn.QUERY,
                     example = "user@example.com"
             )
-            @RequestParam("username") String username) {
+            @RequestParam("username") @Email String username) {
 
         authService.forgetPassword(username);
     }
@@ -309,6 +312,14 @@ public class AuthController {
     @DeleteMapping("/user")
     @PreAuthorize("hasRole('ADMIN')")
     public void delete(
+            @Parameter(
+                    name = "username",
+                    description = "User email used as username (immutable)",
+                    required = true,
+                    in = ParameterIn.QUERY,
+                    example = "user@example.com"
+            )
+            @RequestParam("username") @Email String username,
             @RequestBody @Valid
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Admin confirmation request",
@@ -325,7 +336,7 @@ public class AuthController {
             )
             DeleteRequest req) {
 
-        authService.deleteUser(req);
+        authService.deleteUser(username, req);
     }
 
     @Operation(
@@ -359,7 +370,7 @@ public class AuthController {
                     in = ParameterIn.QUERY,
                     example = "user@example.com"
             )
-            @RequestParam("username")  String username,
+            @RequestParam("username") @Email String username,
 
             @RequestBody @Valid
             @io.swagger.v3.oas.annotations.parameters.RequestBody(

@@ -25,7 +25,7 @@ public class SeedDataConfig implements CommandLineRunner {
             User admin = User
                     .builder()
                     .email("admin@admin.com")
-                    .password(passwordEncoder.encode("password"))
+                    .password(passwordEncoder.encode("Password@123"))
                     .role(Role.ROLE_ADMIN)
                     .enabled(true)
                     .build();

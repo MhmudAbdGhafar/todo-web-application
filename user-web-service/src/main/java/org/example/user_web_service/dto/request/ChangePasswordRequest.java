@@ -3,9 +3,9 @@ package org.example.user_web_service.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+import org.example.user_web_service.validation.Otp6Digits;
 import org.example.user_web_service.validation.PasswordMatch;
+import org.example.user_web_service.validation.PasswordPolicy;
 
 @PasswordMatch
 @Schema(
@@ -27,7 +27,7 @@ public record ChangePasswordRequest(
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
         @NotBlank
-        @Pattern(regexp = "\\d{6}")
+        @Otp6Digits
         String otp,
 
         @Schema(
@@ -47,7 +47,7 @@ public record ChangePasswordRequest(
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
         @NotBlank
-        @Size(min = 8, max = 64)
+        @PasswordPolicy
         String password,
 
         @Schema(
@@ -58,6 +58,5 @@ public record ChangePasswordRequest(
                 requiredMode = Schema.RequiredMode.REQUIRED
         )
         @NotBlank
-        @Size(min = 8, max = 64)
         String confirmPassword
 ) {}

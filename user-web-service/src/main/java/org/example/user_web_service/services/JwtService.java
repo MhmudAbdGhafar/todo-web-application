@@ -66,16 +66,16 @@ public class JwtService {
             final String email = getEmail(token);
 
             if (!email.equals(userDetails.getUsername())) {
-                return false;
+                return true;
             }
 
             return !isTokenExpired(token);
 
         } catch (io.jsonwebtoken.JwtException ex) {
 
-            return false;
+            return true;
         } catch (Exception ex) {
-            return false;
+            return true;
         }
     }
 
