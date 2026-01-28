@@ -6,9 +6,14 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "jwts")
+@Table(
+        name = "jwts",
+        indexes = {
+                @Index(name = "idx_jwt_token", columnList = "token"),
+                @Index(name = "idx_jwt_user", columnList = "user_id")
+        }
+)
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -18,17 +23,20 @@ public class Jwt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable=false, length=1000)
+    @Column(nullable = false, length = 1000, unique = true)
     private String token;
 
+    @Column(nullable = false)
     private Instant createdAt;
 
+    @Column(nullable = false)
     private Instant expirationDate;
 
     @Enumerated(EnumType.STRING)
-    private TokenType tokenType; // "BEARER"
+    @Column(nullable = false)
+    private TokenType tokenType;
 
-    @ManyToOne(optional=false, fetch = FetchType.LAZY)
-    @JoinColumn(name="user_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id")
     private User user;
 }

@@ -2,7 +2,6 @@ package org.example.user_web_service.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.example.user_web_service.dto.request.ChangePasswordRequest;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
