@@ -79,6 +79,10 @@ public class ItemServiceImpl implements ItemService {
             );
         }
 
+        if (req.status() != null && details.getStatus() == TodoStatus.DONE && req.status() != TodoStatus.DONE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "DONE items cannot change status");
+        }
+
         Optional.ofNullable(req.title()).ifPresent(item::setTitle);
         Optional.ofNullable(req.description()).ifPresent(details::setDescription);
         Optional.ofNullable(req.priority()).ifPresent(details::setPriority);

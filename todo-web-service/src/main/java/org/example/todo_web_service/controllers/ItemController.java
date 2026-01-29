@@ -2,11 +2,15 @@ package org.example.todo_web_service.controllers;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.example.todo_web_service.dto.request.CreateItemRequest;
 import org.example.todo_web_service.dto.request.UpdateItemRequest;
 import org.example.todo_web_service.dto.response.ItemResponse;
+import org.example.todo_web_service.exception.ApiException;
 import org.example.todo_web_service.services.ItemService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,7 +30,21 @@ public class ItemController {
 
         Object val = request.getAttribute("userId");
 
-        return (val instanceof Long l) ? l : Long.valueOf(val.toString());
+        if (val == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Missing authenticated user");
+        }
+
+        try {
+            Long id = (val instanceof Long l) ? l : Long.valueOf(val.toString());
+
+            if (id <= 0) {
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid authenticated user");
+            }
+
+            return id;
+        } catch (NumberFormatException ex) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid authenticated user");
+        }
     }
 
     @PostMapping
@@ -40,7 +58,7 @@ public class ItemController {
     @PutMapping("/{id}")
     public ItemResponse updateItem(
             HttpServletRequest request,
-            @PathVariable Long id,
+            @PathVariable @Positive(message = "id must be a positive number") Long id,
             @RequestBody @Valid UpdateItemRequest req) {
 
         return itemService.update(userId(request), id, req);
@@ -49,7 +67,7 @@ public class ItemController {
     @DeleteMapping("/{id}")
     public void deleteItemById(
             HttpServletRequest request,
-            @PathVariable Long id) {
+            @PathVariable @Positive(message = "id must be a positive number") Long id) {
 
         itemService.delete(userId(request), id);
     }
@@ -57,7 +75,7 @@ public class ItemController {
     @GetMapping("/{id}")
     public ItemResponse getItemById(
             HttpServletRequest request,
-            @PathVariable Long id) {
+            @PathVariable @Positive(message = "id must be a positive number") Long id) {
 
         return itemService.getById(userId(request), id);
     }
@@ -65,7 +83,9 @@ public class ItemController {
     @GetMapping
     public List<ItemResponse> searchItems(
             HttpServletRequest request,
-            @RequestParam String title){
+            @Size(max = 200, message = "title must be at most 200 characters")
+            @RequestParam(required = false)
+            String title){
 
         return itemService.searchByTitle(userId(request), title);
     }
