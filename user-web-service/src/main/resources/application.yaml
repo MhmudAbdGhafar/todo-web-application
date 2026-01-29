@@ -32,6 +32,9 @@ app:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+  packages-to-scan: org.example.user_web_service.controller
+  paths-to-match: /api/**
+  default-flat-param-object: false
 
 logging:
   level:
