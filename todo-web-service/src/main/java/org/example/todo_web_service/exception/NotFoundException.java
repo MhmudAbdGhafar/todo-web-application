@@ -1,7 +1,9 @@
 package org.example.todo_web_service.exception;
 
-public class NotFoundException extends RuntimeException{
+import org.springframework.http.HttpStatus;
+
+public class NotFoundException extends ApiException{
     public NotFoundException(String message) {
-        super(message);
+        super(HttpStatus.NOT_FOUND, message);
     }
 }
