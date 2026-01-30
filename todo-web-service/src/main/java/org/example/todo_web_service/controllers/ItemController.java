@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.example.todo_web_service.config.OpenApiConfig;
@@ -206,8 +207,8 @@ public class ItemController {
             HttpServletRequest request,
             @Parameter(in = ParameterIn.QUERY, example = "spring", description = "Title search keyword")
             @Size(max = 200, message = "title must be at most 200 characters")
-            @RequestParam(required = false)
-            String title){
+            @NotBlank(message = "title is required")
+            @RequestParam("title") String title){
 
         return itemService.searchByTitle(userId(request), title);
     }
