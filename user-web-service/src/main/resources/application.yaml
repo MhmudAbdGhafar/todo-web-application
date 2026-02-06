@@ -5,7 +5,7 @@ spring:
   application:
     name: user-web-service
   datasource:
-    url: jdbc:mysql://localhost:3307/myuser_service_sev
+    url: jdbc:mysql://localhost:3307/myuser_service_dev
     username: root
     password: root
   jpa:
@@ -29,12 +29,17 @@ app:
   otp:
     expirationMinutes: 10
 
+storage:
+  root-dir: uploads/users
+  max-file-size: 2097152 # 2MB
+  allowed-content-types:
+    - image/jpeg
+    - image/png
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
   packages-to-scan: org.example.user_web_service.controller
-  paths-to-match: /api/**
-  default-flat-param-object: false
 
 logging:
   level:

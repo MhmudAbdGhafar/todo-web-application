@@ -34,6 +34,10 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Setter
+    @Column(name = "photo_url")
+    private String photoUrl;
+
     public void changePassword(String password) {
         this.password = password;
     }

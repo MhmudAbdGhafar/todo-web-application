@@ -69,18 +69,12 @@ public class ItemServiceImpl implements ItemService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Title cannot be blank");
         }
 
-        if (req.status() != null &&
-                item.getDetails().getStatus() == TodoStatus.DONE &&
-                req.status() != TodoStatus.DONE) {
+        if (req.status() != null && item.getDetails().getStatus() == TodoStatus.DONE && req.status() != TodoStatus.DONE) {
 
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Completed items cannot be modified"
             );
-        }
-
-        if (req.status() != null && details.getStatus() == TodoStatus.DONE && req.status() != TodoStatus.DONE) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "DONE items cannot change status");
         }
 
         Optional.ofNullable(req.title()).ifPresent(item::setTitle);
